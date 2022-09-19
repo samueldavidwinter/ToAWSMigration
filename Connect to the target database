@@ -1,0 +1,7 @@
+Before we start the migration, verify that you can connect to the target database.
+
+Use the PostgreSQL client installed in the bastion host to connect to the target postgres database via the target VPC endpoint:
+  psql -h target_vpc_endpoint -p 5432 -d postgres -U postgres
+
+Create the target database by running the following statement:
+  CREATE DATABASE demo_db;
