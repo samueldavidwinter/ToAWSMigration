@@ -1,0 +1,35 @@
+Prepare the source database
+
+In the output of the terraform output command, take note of the following four fields (you need them to connect to each database):
+  secret_source_db = password of the source database
+  secret_target_db = password of the target database
+  source_vpc_endpoint = endpoint to connect to the source database
+  target_vpc_endpoint = endpoint to connect to the target database
+  
+Use the PostgreSQL client (psql) in the bastion host to connect to the source database via the Network Load Balancer VPC endpoint:
+  psql -h source_vpc_endpoint -p 5432 -d postgres -U postgres
+  Create a database, schema, and table objects:
+  CREATE SCHEMA demo_db;
+  \c demo_db
+  CREATE SCHEMA demo_schema;
+  CREATE TABLE demo_schema.demo_accounts(
+     accountNumber                BIGINT NOT NULL, 
+     firstName                    VARCHAR(20),
+     lastName                     VARCHAR(20), 
+     creationTime                 TIME NOT NULL    
+  );
+  
+Describe the table:
+  \dt+ demo_schema.demo_accounts
+
+Insert sample records in the newly created table:
+  
+  INSERT INTO demo_schema.demo_accounts VALUES
+  (1,'John','Smith',current_timestamp),
+  (2,'Mary','Doe',current_timestamp),
+  (3,'Tom','Good',current_timestamp)
+  (4,'Peter','Flynn',current_timestamp);
+
+
+Verify all the records were successfully created:
+  SELECT * FROM demo_schema.demo_accounts;
