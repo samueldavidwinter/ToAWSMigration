@@ -1,0 +1,70 @@
+
+The AWS DMS replication tasks are the core component of the database migration process. They contain all the metadata require to instruct AWS DMS on how to perform the migrations. Therefore, before we create the replication task, let’s create two JSON configuration files to use for the task settings and table mappings.
+
+Create the task-settings.json file using the following sample JSON document:
+  {
+     "FullLoadSettings":{
+        "TargetTablePrepMode":"TRUNCATE_BEFORE_LOAD"
+     },
+     "Logging":{
+        "EnableLogging":true
+     }
+  }
+The TargetTablePreMode setting indicates how to handle loading the target at full-load startup. The available options are as follows:
+
+  DO_NOTHING – Data and metadata of the existing target table aren’t affected
+  DROP_AND_CREATE – The existing table is dropped and a new table is created in its place
+  TRUNCATE_BEFORE_LOAD – Data is truncated without affecting the table metadata
+  
+For this example, we chose the TRUNCATE_BEFORE_LOAD option given the simplicity of the test environment, but you can select the option that better fits the needs of your organization.
+
+Create the table-mappings.json file using the following JSON document:
+  {
+     "rules":[
+        {
+           "rule-type":"selection",
+           "rule-id":"1",
+           "rule-name":"1",
+           "object-locator":{
+              "schema-name":"demo_schema",
+              "table-name":"demo_accounts"
+           },
+           "rule-action":"include",
+           "filters":[]
+        }
+     ]
+  }
+We configure a few environment variables to store information such as Amazon Resource Names and the AWS Region in which the resources are deployed:
+  export AWS_REGION=us-east-1
+
+  export sourceEndpointARN=$(aws dms describe-endpoints --region $AWS_REGION --filters Name=endpoint-type,Values=SOURCE --query 'Endpoints[0].EndpointArn' --output text)
+
+  export targetEndpointARN=$(aws dms describe-endpoints --region $AWS_REGION --filters Name=endpoint-type,Values=TARGET --query 'Endpoints[0].EndpointArn' --output text)
+
+  export dmsInstanceARN=$(aws dms describe-replication-instances --region $AWS_REGION --query 'ReplicationInstances[0].ReplicationInstanceArn' --output text)
+
+  export dmsRepTask=dms-task-demo
+
+Run the following AWS CLI command to create an AWS DMS migration task called dms-task-demo:
+  aws dms create-replication-task --replication-task-identifier $dmsRepTask --source-endpoint-arn $sourceEndpointARN --target-endpoint-arn $targetEndpointARN --region $AWS_REGION --replication-instance-arn $dmsInstanceARN --migration-type full-load --table-mappings file://table-mappings.json --replication-task-settings file://task-settings.json --region $AWS_REGION
+
+Wait approximately 60 seconds for the task to be created and then run the AWS DMS migration task:
+  export dmsRepTaskARN=$(aws dms describe-replication-tasks --filters Name=replication-task-id,Values=$dmsRepTask --query "ReplicationTasks[*].ReplicationTaskArn" --region $AWS_REGION --output text)
+
+  aws dms start-replication-task --start-replication-task-type start-replication --replication-task-arn $dmsRepTaskARN --region $AWS_REGION
+
+Monitor the migration task while it is running. You can run the following command in a loop at different intervals:
+  aws dms describe-replication-tasks --filters Name=replication-task-id,Values=$dmsRepTask --region $AWS_REGION --output table
+
+When the task is complete, connect to the target database using a PostgreSQL client:
+  psql -h target_vpc_endpoint -p 5432 -d postgres -U postgres
+
+Describe the target table to validate it is migrated successfully:
+  \dt+ demo_schema.demo_accounts
+
+
+Query the contents of the demo_schema.demo_accounts table to list all the records match the records stored in the source database:
+  SELECT * FROM demo_schema.demo_accounts;
+
+After you verify the contents of the database, delete the replication task by running the following command:
+  aws dms delete-replication-task --replication-task-arn $dmsRepTaskARN --region $AWS_REGION
