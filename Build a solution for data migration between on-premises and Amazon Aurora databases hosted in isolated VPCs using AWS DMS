@@ -1,0 +1,10 @@
+Using git, clone the repository to your local machine:
+  git clone https://github.com/aws-samples/aws-dms-terraform.git
+Navigate to the provisioning directory:
+  cd provisioning
+Initialize the working directory that contains the Terraform configuration files:
+  terraform init
+Create a run plan:
+  terraform plan -out=tfplan -var-file="../variables/dev/common.tfvars.json"
+Run the actions proposed in the Terraform plan to create the infrastructure:
+  terraform apply “tfplan”
